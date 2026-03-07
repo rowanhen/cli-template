@@ -48,10 +48,16 @@ Push to `main`. The release workflow will:
 1. Detect the version bump type from Conventional Commits
 2. Bump `package.json` version
 3. Build and test
-4. Publish to npm (requires `NPM_TOKEN` secret)
+4. Publish to npm
 5. Commit the version bump, tag it, and create a GitHub Release
 
-**Required secret**: Add `NPM_TOKEN` to your repo's Settings → Secrets.
+**npm publish uses `--provenance`**, which requires [OIDC-based npm publishing](https://docs.npmjs.com/generating-provenance-statements) rather than a static `NPM_TOKEN`. To enable this:
+
+1. Log in to npmjs.com and go to your package's **Settings → Publishing**
+2. Enable **"Allow publishing from GitHub Actions using OIDC"** and link the repo
+3. Make sure the workflow has `id-token: write` permission (already set)
+
+Until OIDC is configured the publish step will fail, but everything up to that point (version bump, build, test) will run fine.
 
 ## Commit Format
 
