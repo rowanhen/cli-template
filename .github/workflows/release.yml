@@ -9,9 +9,12 @@ permissions:
   id-token: write
 
 jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
   release:
+    needs: ci
     runs-on: ubuntu-latest
-    # Skip the version bump commit pushed by this workflow to avoid an infinite loop
     if: "!startsWith(github.event.head_commit.message, 'chore: release')"
     steps:
       - name: Checkout
@@ -41,7 +44,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: https://registry.npmjs.org
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -51,12 +53,46 @@ jobs:
       - name: Install
         run: bun install
 
+      # Sync local version to npm registry to prevent desync issues.
+      # If the local package.json version drifts from what's published,
+      # the bump would be based on a stale version. This was a painful
+      # lesson from the composables repo.
+      - name: Sync version from npm registry
+        run: |
+          PKG_NAME=$(node -p "require('./package.json').name")
+          NPM_VERSION=$(npm view "$PKG_NAME" version 2>/dev/null || echo "")
+          LOCAL_VERSION=$(node -p "require('./package.json').version")
+          if [ -z "$NPM_VERSION" ]; then
+            echo "Package not yet published — using local version $LOCAL_VERSION"
+          elif [ "$NPM_VERSION" != "$LOCAL_VERSION" ]; then
+            echo "Version desync detected: local=$LOCAL_VERSION npm=$NPM_VERSION — syncing to npm version"
+            node -e "
+              const fs = require('fs');
+              const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+              pkg.version = '$NPM_VERSION';
+              fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+            "
+          fi
+
+      # Use a Node script instead of `npm version` — npm version checks
+      # git state and fails in CI when the working tree is dirty.
       - name: Bump version
         id: version
         run: |
-          NEW_VERSION=$(npm version ${{ steps.bump.outputs.type }} --no-git-tag-version)
-          echo "version=${NEW_VERSION#v}" >> $GITHUB_OUTPUT
-          echo "tag=$NEW_VERSION" >> $GITHUB_OUTPUT
+          BUMP_TYPE="${{ steps.bump.outputs.type }}"
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            const [major, minor, patch] = pkg.version.split('.').map(Number);
+            if ('$BUMP_TYPE' === 'major') pkg.version = \`\${major+1}.0.0\`;
+            else if ('$BUMP_TYPE' === 'minor') pkg.version = \`\${major}.\${minor+1}.0\`;
+            else pkg.version = \`\${major}.\${minor}.\${patch+1}\`;
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+            console.log(pkg.version);
+          "
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=v${NEW_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Build
         run: bun run build
@@ -64,17 +100,26 @@ jobs:
       - name: Test
         run: bun test
 
+      # Use `npx -y npm@latest` instead of system npm — Node 22's bundled
+      # npm 10.x can't do OIDC auth, and `npm install -g npm@latest` causes
+      # MODULE_NOT_FOUND self-corruption. npx downloads to a temp dir safely.
+      # Do NOT set registry-url in setup-node — it creates an .npmrc that
+      # conflicts with OIDC token auth.
       - name: Publish to npm
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          PUBLISHED=$(npm view "$(node -p "require('./package.json').name")@${{ steps.version.outputs.version }}" version 2>/dev/null || echo "")
+          if [ "$PUBLISHED" = "${{ steps.version.outputs.version }}" ]; then
+            echo "Version ${{ steps.version.outputs.version }} already published — skipping"
+          else
+            npx -y npm@latest publish --provenance --access public
+          fi
 
       - name: Commit and tag
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add package.json
-          git commit -m "chore: release ${{ steps.version.outputs.tag }}"
+          git commit -m "chore: release v${{ steps.version.outputs.version }}"
           git tag "${{ steps.version.outputs.tag }}"
           git push origin HEAD --tags
 
