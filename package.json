@@ -20,9 +20,10 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@clack/prompts": "^0.9.0",
-    "commander": "^12.1.0",
-    "picocolors": "^1.1.0"
+    "@effect/cli": "^0.75.1",
+    "@effect/platform": "^0.96.1",
+    "@effect/platform-bun": "^0.89.0",
+    "effect": "^3.21.2"
   },
   "devDependencies": {
     "@types/bun": "latest",

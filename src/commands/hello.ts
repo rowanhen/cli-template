@@ -1,36 +1,24 @@
-import { Command } from "commander";
-import { intro, outro, text, spinner, isCancel, cancel } from "@clack/prompts";
-import pc from "picocolors";
+import { Command, Options, Prompt } from "@effect/cli";
+import { Console, Effect } from "effect";
 
-export const helloCommand = new Command("hello")
-  .description("An example interactive command")
-  .option("-n, --name <name>", "your name")
-  .action(async (options) => {
-    intro(pc.bgCyan(pc.black(" my-cli ")));
+const askForName = Prompt.text({
+  message: "What is your name?",
+  validate: (value) => {
+    const trimmed = value.trim();
+    return trimmed.length === 0 ? Effect.fail("Name cannot be empty.") : Effect.succeed(trimmed);
+  },
+});
 
-    let name = options.name as string | undefined;
+const name = Options.text("name").pipe(
+  Options.withAlias("n"),
+  Options.withFallbackPrompt(askForName),
+);
 
-    if (!name) {
-      const response = await text({
-        message: "What is your name?",
-        placeholder: "stranger",
-        validate(value) {
-          if (value.trim().length === 0) return "Name cannot be empty.";
-        },
-      });
-
-      if (isCancel(response)) {
-        cancel("Cancelled.");
-        process.exit(0);
-      }
-
-      name = response;
-    }
-
-    const s = spinner();
-    s.start("Doing something...");
-    await new Promise((r) => setTimeout(r, 800));
-    s.stop("Done!");
-
-    outro(`Hello, ${pc.cyan(name)}! 👋`);
-  });
+export const helloCommand = Command.make("hello", { name }, ({ name }) =>
+  Effect.gen(function* () {
+    yield* Console.log("Doing something...");
+    yield* Effect.sleep("800 millis");
+    yield* Console.log("Done!");
+    yield* Console.log(`Hello, ${name}! 👋`);
+  }),
+).pipe(Command.withDescription("An example interactive command"));
