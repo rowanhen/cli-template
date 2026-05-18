@@ -1,14 +1,14 @@
 # my-cli
 
-> A lean CLI template using Bun, TypeScript, and Commander. Clone, rename, and ship.
+> A lean CLI template using Bun, TypeScript, and Effect. Clone, rename, and ship.
 
 ## Stack
 
 - **Runtime**: [Bun](https://bun.sh)
 - **Language**: TypeScript
-- **CLI framework**: [Commander](https://github.com/tj/commander.js)
-- **Prompts**: [@clack/prompts](https://github.com/natemoo-re/clack)
-- **Colors**: [picocolors](https://github.com/alexeyraspopov/picocolors)
+- **CLI framework**: [@effect/cli](https://github.com/Effect-TS/effect/tree/main/packages/cli)
+- **Platform**: [@effect/platform-bun](https://github.com/Effect-TS/effect/tree/main/packages/platform-bun)
+- **Core**: [Effect](https://effect.website)
 - **Versioning**: Conventional Commits + automated GitHub Actions release
 
 ## Getting Started
@@ -31,14 +31,17 @@ my-cli hello
 ## Adding a Command
 
 1. Create `src/commands/my-command.ts`
-2. Export a `Command` from Commander
-3. Register it in `src/cli.ts` with `program.addCommand(...)`
+2. Define options with `Options` and prompts with `Prompt` from `@effect/cli`
+3. Export a `Command` using `Command.make("name", { options }, handler)`
+4. Register it in `src/cli.ts` with `Command.withSubcommands([...])`
+
+See `src/commands/hello.ts` for a working example.
 
 ## Renaming the CLI
 
 Search and replace `my-cli` across:
 - `package.json` — `name` and `bin` key
-- `src/cli.ts` — `.name("my-cli")`
+- `src/cli.ts` — `Command.make("my-cli")` and the `name` in `Command.run`
 - This README
 
 ## Publishing
@@ -81,15 +84,13 @@ The git hook at `.githooks/commit-msg` enforces this locally after `bun install`
 
 ## Suggested Packages
 
-Drop these in as needed to improve interactivity, formatting, and polish.
+Drop these in as needed to improve formatting and polish.
 
 | Package | What it does |
 |---|---|
 | [`ora`](https://github.com/sindresorhus/ora) | Flexible terminal spinner — good for long async tasks where you want fine-grained control |
 | [`listr2`](https://github.com/listr2/listr2) | Renders a live task list with status indicators — great for multi-step operations |
 | [`boxen`](https://github.com/sindresorhus/boxen) | Draws a styled box around output — good for summaries or end-of-run results |
-| [`chalk`](https://github.com/chalk/chalk) | If you outgrow picocolors — supports tagged template literals and 256-color |
-| [`gradient-string`](https://github.com/bokub/gradient-string) | Applies color gradients to strings — nice for banners and headers |
-| [`figlet`](https://github.com/patorjk/figlet.js) | Generates ASCII art from text — for a splash header on startup |
+| [`chalk`](https://github.com/chalk/chalk) | Terminal string styling with tagged template literals and 256-color support |
 | [`cli-table3`](https://github.com/cli-table/cli-table3) | Pretty tables with borders, alignment, and color support |
 | [`update-notifier`](https://github.com/yeoman/update-notifier) | Checks npm for a newer version and nudges the user to upgrade |

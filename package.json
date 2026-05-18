@@ -18,7 +18,7 @@
     "lint": "oxlint src/",
     "format": "prettier --check src/",
     "format:fix": "prettier --write src/",
-    "prepare": "husky"
+    "prepare": "git config core.hooksPath .githooks"
   },
   "dependencies": {
     "@effect/cli": "^0.75.1",
@@ -29,7 +29,6 @@
   "devDependencies": {
     "@types/bun": "latest",
     "@types/node": "^22.0.0",
-    "husky": "^9.1.7",
     "oxlint": "^0.16.0",
     "prettier": "^3.5.0",
     "typescript": "^5.7.0"
